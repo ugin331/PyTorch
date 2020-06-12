@@ -52,7 +52,7 @@ optimizer = torch.optim.Adam(our_model.parameters(), lr=0.05)
 my_images = []
 fig, ax = plt.subplots(figsize=(16, 10))
 
-for epoch in range(500):
+for epoch in range(1000):
    # Forward pass: Compute predicted y by passing
    # x to the model
    pred_y = our_model(x_data)
