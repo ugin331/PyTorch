@@ -31,27 +31,18 @@ def imshow(img):
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
 
 
-# view module so can be used with sequential
-class View(nn.Module):
-    def __init__(self, before, shape):
-        self.before = before
-        self.shape = shape
-
-    def forward(self, x):
-        return x.view(self.before, self.shape)
-
-
 class testNet(nn.Module):
     def __init__(self):
         super(testNet, self).__init__()
-        self.features = nn.Sequential(
+        self.conv_net = nn.Sequential(
             nn.Conv2d(3, 6, 5),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(6, 16, 5),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            View(-1, 16 * 5 * 5),
+            nn.MaxPool2d(2, 2)
+        )
+        self.linear = nn.Sequential(
             nn.Linear(16 * 5 * 5, 120),
             nn.ReLU(),
             nn.Linear(120, 84),
@@ -60,7 +51,9 @@ class testNet(nn.Module):
         )
 
     def forward(self, x):
-        x = self.features(x)
+        x = self.conv_net(x)
+        x = x.view(-1, 16 * 5 * 5)
+        x = self.linear(x)
         return x
 
 
