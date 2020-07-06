@@ -1,7 +1,14 @@
 import torch as torch
 import torchvision
 import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
 import numpy as np
+import pandas as pd
+
+
+dataset = torch.load("/data/trial_7.dat")
 
 
 class testNet(nn.Module):
@@ -28,3 +35,39 @@ class testNet(nn.Module):
         x = x.view(-1, 16 * 5 * 5)
         x = self.linear(x)
         return x
+
+    def optimize(self, dataset):
+        print("stuff")
+        # optimize dataset and stuff
+
+
+model = testNet()
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr = 0.01, momentum = 0.9)
+
+#variables and things
+epochs = 1032342394
+split = 0.25
+bs = 16
+
+test_loss = []
+train_loss = []
+
+# load data and do things here
+trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size = bs, shuffle = True)
+testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size = bs, shuffle = True)
+
+for epoch in range(epochs):
+
+    train_loss = 0
+    test_loss = 0
+
+    for i, (data, target) in enumerate(trainLoader):
+
+        optimizer.zero_grad()
+        predict = model(data)
+        loss = criterion(data, target)
+        train_loss += loss.item()
+
+        loss.backward()
+        optimizer.step()
