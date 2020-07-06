@@ -59,6 +59,7 @@ testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size = bs, sh
 
 for epoch in range(epochs):
 
+    # testing and training loss
     train_loss = 0
     test_loss = 0
 
