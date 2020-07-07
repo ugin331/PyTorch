@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 from torchvision import datasets
 import numpy as np
 import matplotlib.pyplot as plt
+from torch.autograd import Variable
 
 # number of subprocesses to use for data loading
 num_workers = 0  # means to use all
@@ -31,16 +32,16 @@ class Net(nn.Module):
 
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = torch.nn.Linear(784, 10, 5)
-        self.conv2 = torch.nn.Linear(10, 20, 5)
-        self.linear1 = torch.nn.Linear(20, 50)
+        self.conv1 = torch.nn.Conv2d(1, 10, 5)
+        self.conv2 = torch.nn.Conv2d(10, 20, 5)
+        self.linear1 = torch.nn.Linear(20 * 4 * 4, 50)
         self.predict = torch.nn.Linear(50, 10)
 
     def forward(self, x):
         # Define the forward pass operations here
-        x = x.view(-1, 784)
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        x = x.view(-1, 20 * 4 * 4)
         x = F.relu(F.dropout(self.linear1(x)))
         x = self.predict(x)
         return x
@@ -68,13 +69,13 @@ for epoch in range(n_epochs):
     ###################
     # train the model #
     ###################
-    for data, target in train_loader:
+    for batch_idx, (data, target) in enumerate(train_loader):
         # clear the gradients of all optimized variables
         optimizer.zero_grad()
         # forward pass: compute predicted outputs by passing inputs to the model
         outputs = model(data)
         # calculate the loss
-        loss = criterion(outputs, target)  # change this
+        loss = criterion(outputs, target)
 
         # backward pass: compute gradient of the loss with respect to model parameters
         loss.backward()
