@@ -29,10 +29,11 @@ class testNet(nn.Module):
             nn.ReLU(),
             nn.Linear(linear2_out, final_out)
         )
+        self.cnntolinearshape = layer2_conv_out*conv_size*conv_size
 
     def forward(self, x):
         x = self.conv_net(x)
-        x = x.view(-1, 16 * 5 * 5)
+        x = x.view(-1, self.cnntolinearshape)
         x = self.linear(x)
         return x
 
@@ -50,8 +51,8 @@ epochs = 1032342394
 split = 0.25
 bs = 16
 
-test_loss = []
-train_loss = []
+test_errors = []
+train_errors = []
 
 # load data and do things here
 trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size = bs, shuffle = True)
@@ -60,15 +61,24 @@ testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size = bs, sh
 for epoch in range(epochs):
 
     # testing and training loss
-    train_loss = 0
-    test_loss = 0
+    train_error = 0
+    test_error = 0
 
     for i, (data, target) in enumerate(trainLoader):
 
         optimizer.zero_grad()
         predict = model(data)
         loss = criterion(data, target)
-        train_loss += loss.item()
+        train_error += loss.item()
 
         loss.backward()
         optimizer.step()
+
+    for i, (inputs, targets) in enumerate(testLoader):
+        outputs = model(inputs)
+        loss = criterion(outputs.float(), targets.float())
+        test_error += loss.item() / (len(testLoader))
+
+    print(f"    Epoch {epoch + 1}, Train err: {train_error}, Test err: {test_error}")
+    train_errors.append(train_error)
+    test_errors.append(test_error)
