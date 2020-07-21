@@ -47,7 +47,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr = 0.01, momentum = 0.9)
 
 #variables and things
-epochs = 1032342394
+epochs = 10
 split = 0.25
 bs = 16
 
