@@ -3,16 +3,42 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
 import numpy as np
 import pandas as pd
 import os
 import sklearn
 
+class simdata(Dataset):
+    # Characterizes a dataset for PyTorch
+    def __init__(self, root_dir):
+        self.root_dir = root_dir
 
-file = '/data/trial_7.dat'
-cur_dir = os.getcwd()
-dataset = torch.load(cur_dir+file)
+        # load npy files
+        actions = np.load(root_dir+'/actions.npy')
+        deltas = np.load(root_dir+'/deltas.npy')
+        states = np.load(root_dir+'/states.npy')
 
+        # turn them to tensors
+        actions = torch.from_numpy(actions)
+        deltas = torch.from_numpy(deltas)
+        deltas = deltas.unsqueeze(1)
+        print(deltas.shape)
+        states = torch.from_numpy(states)
+        print(states.shape)
+
+        # concat states and deltas
+        self.data = torch.cat((states, deltas), dim=1)
+        print(self.data.shape)
+        self.targets = actions
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        x = self.data[index]
+        y = self.targets[index]
+        return x, y
 
 class testNet(nn.Module):
     def __init__(self, n_in, n_hidden1, n_hidden2, n_hidden3, n_predict):
@@ -25,8 +51,6 @@ class testNet(nn.Module):
         )
 
     def forward(self, x):
-        x = self.conv_net(x)
-        x = x.view(-1, self.cnntolinearshape)
         x = self.linear(x)
         return x
 
@@ -34,12 +58,12 @@ class testNet(nn.Module):
         print("stuff")
         # optimize dataset and stuff
 
-
-model = testNet(torch.numel(dataset[0]), 100, 20, 10, torch.numel(dataset[0]))
+dataset = simdata(root_dir = './data/simdata')
+model = testNet(7, 100, 20, 10, 4)
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr = 0.01, momentum = 0.9)
+optimizer = optim.Adam(model.parameters(), lr = 0.01)
 
-#variables and things
+# variables and things
 epochs = 10
 split = 0.25
 bs = 16
@@ -57,17 +81,22 @@ for epoch in range(epochs):
     train_error = 0
     test_error = 0
 
-    for i, (data, target) in enumerate(trainLoader):
+    for i, data in enumerate(trainLoader):
+
+        inputs, target = data
 
         optimizer.zero_grad()
-        predict = model(data)
-        loss = criterion(data, target)
+        predict = model(inputs)
+        loss = criterion(inputs, target)
         train_error += loss.item()
 
         loss.backward()
         optimizer.step()
 
-    for i, (inputs, targets) in enumerate(testLoader):
+    for i, data in enumerate(testLoader):
+
+        inputs, targets = data
+
         outputs = model(inputs)
         loss = criterion(outputs.float(), targets.float())
         test_error += loss.item() / (len(testLoader))
