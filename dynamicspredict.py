@@ -9,6 +9,7 @@ import pandas as pd
 import os
 import sklearn
 
+
 class simdata(Dataset):
     # Characterizes a dataset for PyTorch
     def __init__(self, root_dir):
@@ -21,16 +22,14 @@ class simdata(Dataset):
 
         # turn them to tensors
         actions = torch.from_numpy(actions)
+        actions = actions.type(torch.float64)
         deltas = torch.from_numpy(deltas)
         deltas = deltas.unsqueeze(1)
-        print(deltas.shape)
         states = torch.from_numpy(states)
-        print(states.shape)
 
         # concat states and deltas
-        self.data = torch.cat((states, deltas), dim=1)
-        print(self.data.shape)
-        self.targets = actions
+        self.data = torch.cat((states, actions), dim=1)
+        self.targets = deltas
 
     def __len__(self):
         return len(self.data)
@@ -39,6 +38,7 @@ class simdata(Dataset):
         x = self.data[index]
         y = self.targets[index]
         return x, y
+
 
 class testNet(nn.Module):
     def __init__(self, n_in, n_hidden1, n_hidden2, n_hidden3, n_predict):
@@ -57,6 +57,7 @@ class testNet(nn.Module):
     def optimize(self, dataset):
         print("stuff")
         # optimize dataset and stuff
+
 
 dataset = simdata(root_dir = './data/simdata')
 model = testNet(7, 100, 20, 10, 4)
