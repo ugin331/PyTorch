@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import numpy as np
+from collections import OrderedDict
 import pandas as pd
 import os
 import sklearn
@@ -41,17 +42,26 @@ class simdata(Dataset):
 
 
 class testNet(nn.Module):
-    def __init__(self, n_in, n_hidden1, n_hidden2, n_hidden3, n_predict):
+    def __init__(self, n_in, hidden_w, depth, n_out):
         super(testNet, self).__init__()
-        self.linear = nn.Sequential(
-            nn.Linear(n_in, n_hidden1),
-            nn.Linear(n_hidden1, n_hidden2),
-            nn.Linear(n_hidden2, n_hidden3),
-            nn.Linear(n_hidden3, n_predict)
-        )
+        self.n_in = n_in
+        self.hidden_w = hidden_w
+        self.depth = depth
+        self.activation = nn.ReLU()
+        self.n_out = n_out
+        layers = []
+        layers.append(('dynm_input_lin', nn.Linear(self.n_in, self.hidden_w)))
+        layers.append(('dynm_input_act', self.activation))
+        for d in range(self.depth):
+            layers.append(('dynm_lin_' + str(d), nn.Linear(self.hidden_w, self.hidden_w)))
+            layers.append(('dynm_act_' + str(d), self.activation))
+
+        layers.append(('dynm_out_lin', nn.Linear(self.hidden_w, self.n_out)))
+        self.features = nn.Sequential(OrderedDict([*layers]))
+
 
     def forward(self, x):
-        x = self.linear(x)
+        x = self.features(x)
         return x
 
     def optimize(self, dataset):
@@ -59,8 +69,16 @@ class testNet(nn.Module):
         # optimize dataset and stuff
 
 
+def my_collate(batch):
+    data = batch[0]
+    data = data.type(torch.FloatTensor)
+    target = batch[1]
+    target = data.type(torch.FloatTensor)
+    return [data, target]
+
+
 dataset = simdata(root_dir = './data/simdata')
-model = testNet(7, 100, 20, 10, 4)
+model = testNet(10, 50, 3, 1)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr = 0.01)
 
@@ -73,8 +91,8 @@ test_errors = []
 train_errors = []
 
 # load data and do things here
-trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=bs, shuffle=True)
-testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=bs, shuffle=True)
+trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=bs, shuffle=True, collate_fn=my_collate)
+testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=bs, shuffle=True, collate_fn=my_collate)
 
 for epoch in range(epochs):
 
