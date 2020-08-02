@@ -2,6 +2,7 @@ import torch as torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import numpy as np
@@ -38,7 +39,7 @@ class simdata(Dataset):
     def __getitem__(self, index):
         x = self.data[index]
         y = self.targets[index]
-        return x, y
+        return [x, y]
 
 
 class testNet(nn.Module):
@@ -73,7 +74,7 @@ def my_collate(batch):
     data = batch[0]
     data = data.type(torch.FloatTensor)
     target = batch[1]
-    target = data.type(torch.FloatTensor)
+    target = target.type(torch.FloatTensor)
     return [data, target]
 
 
@@ -83,7 +84,7 @@ criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr = 0.01)
 
 # variables and things
-epochs = 10
+epochs = 1000
 split = 0.25
 bs = 16
 
@@ -91,8 +92,8 @@ test_errors = []
 train_errors = []
 
 # load data and do things here
-trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=bs, shuffle=True, collate_fn=my_collate)
-testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=bs, shuffle=True, collate_fn=my_collate)
+trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=bs, shuffle=False, collate_fn=my_collate)
+testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=bs, shuffle=False, collate_fn=my_collate)
 
 for epoch in range(epochs):
 
@@ -103,6 +104,8 @@ for epoch in range(epochs):
     for i, data in enumerate(trainLoader):
 
         inputs, target = data
+        inputs = Variable(inputs, requires_grad=True)
+        target = Variable(target, requires_grad=True)
 
         optimizer.zero_grad()
         predict = model(inputs)
