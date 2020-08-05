@@ -79,13 +79,29 @@ def my_collate(batch):
 
 
 dataset = simdata(root_dir = './data/simdata')
+
+# normalize data here
+normalize = dataset.data
+tensor_max = torch.max(normalize)
+tensor_max = tensor_max.item()
+tensor_min = torch.min(normalize)
+tensor_min = tensor_min.item()
+for row in normalize:
+    for x in row:
+        num = x.item()
+        adjusted = (2*(num-tensor_min)/(tensor_max-tensor_min))-1
+        print(adjusted)
+        x = torch.tensor(adjusted)
+        x = x.type(torch.float64)
+
+
 model = testNet(10, 50, 3, 1)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr = 0.01)
 
 # variables and things
-epochs = 1000
-split = 0.25
+epochs = 10
+split = 0.7
 bs = 16
 
 test_errors = []
