@@ -39,7 +39,7 @@ class simdata(Dataset):
     def __getitem__(self, index):
         x = self.data[index]
         y = self.targets[index]
-        return [x, y]
+        return x, y
 
 
 class testNet(nn.Module):
@@ -90,7 +90,6 @@ for row in normalize:
     for x in row:
         num = x.item()
         adjusted = (2*(num-tensor_min)/(tensor_max-tensor_min))-1
-        print(adjusted)
         x = torch.tensor(adjusted)
         x = x.type(torch.float64)
 
