@@ -10,6 +10,17 @@ from collections import OrderedDict
 import pandas as pd
 
 
+def normalize_data(norm_tensor, tensor_max, tensor_min):
+    for row in norm_tensor:
+        for x in row:
+            num = x.item()
+            adjusted = (2 * (num - tensor_min) / (tensor_max - tensor_min)) - 1
+            x = torch.tensor(adjusted)
+            x = x.type(torch.float64)
+
+    return norm_tensor
+
+
 class simdata(Dataset):
     # Characterizes a dataset for PyTorch
     def __init__(self, root_dir):
@@ -28,15 +39,28 @@ class simdata(Dataset):
         states = torch.from_numpy(states)
 
         # concat states and deltas
-        self.data = torch.cat((states, actions), dim=1)
-        self.targets = deltas
+        data = torch.cat((states, actions), dim=1)
+        data_max = torch.max(data)
+        data_max = data_max.item()
+        data_min = torch.min(data)
+        data_min = data_min.item()
+        data = normalize_data(data, data_max, data_min)
+        targets = deltas
+        targets = normalize_data(targets, data_max, data_min)
+
+        self.data = []
+        for i in range(0, len(data)):
+            temp = [data[i], targets[i]]
+            self.data.append(temp)
+
+        # print(self.data)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        x = self.data[index]
-        y = self.targets[index]
+        x = self.data[index][0]
+        y = self.data[index][1]
         return x, y
 
 
@@ -69,44 +93,43 @@ class testNet(nn.Module):
 
 
 def my_collate(batch):
-    data = batch[0]
-    data = data.type(torch.FloatTensor)
-    target = batch[1]
-    target = target.type(torch.FloatTensor)
-    return [data, target]
+    data = []
+    target = []
+    for item in batch:
+        data_item = item[0].tolist()
+        data.append(data_item)
+        target_item = item[1].tolist()
+        target.append(target_item)
+
+    data = torch.FloatTensor(data)
+    target = torch.FloatTensor(target)
+
+    return data, target
 
 
-dataset = simdata(root_dir = './data/simdata')
-
-# normalize data here
-normalize = dataset.data
-tensor_max = torch.max(normalize)
-tensor_max = tensor_max.item()
-tensor_min = torch.min(normalize)
-tensor_min = tensor_min.item()
-for row in normalize:
-    for x in row:
-        num = x.item()
-        adjusted = (2*(num-tensor_min)/(tensor_max-tensor_min))-1
-        x = torch.tensor(adjusted)
-        x = x.type(torch.float64)
-
+dataset = simdata(root_dir='./data/simdata')
 
 model = testNet(10, 50, 3, 1)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr = 0.01)
 
 # variables and things
-epochs = 10
+epochs = 100
 split = 0.7
 bs = 16
 
 test_errors = []
 train_errors = []
 
+# train_set = dataset[:int(split * len(dataset))]
+# print("train_set length:")
+# print(len(train_set))
+# print(train_set)
+# test_set = dataset[int(split * len(dataset)):]
+
 # load data and do things here
-trainLoader = DataLoader(dataset[:int(split * len(dataset))], batch_size=bs, shuffle=False, collate_fn=my_collate)
-testLoader = DataLoader(dataset[int(split * len(dataset)):], batch_size=bs, shuffle=False, collate_fn=my_collate)
+trainLoader = DataLoader(dataset, batch_size=bs, shuffle=True, collate_fn=my_collate)
+testLoader = DataLoader(dataset, batch_size=bs, shuffle=True, collate_fn=my_collate)
 
 for epoch in range(epochs):
 
