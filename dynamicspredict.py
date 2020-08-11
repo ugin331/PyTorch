@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
+from torch.utils.data import random_split
 import numpy as np
 from collections import OrderedDict
 import pandas as pd
@@ -111,7 +112,7 @@ dataset = simdata(root_dir='./data/simdata')
 
 model = testNet(10, 50, 3, 1)
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr = 0.01)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 # variables and things
 epochs = 100
@@ -127,9 +128,11 @@ train_errors = []
 # print(train_set)
 # test_set = dataset[int(split * len(dataset)):]
 
+train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset)+1)])
+
 # load data and do things here
-trainLoader = DataLoader(dataset, batch_size=bs, shuffle=True, collate_fn=my_collate)
-testLoader = DataLoader(dataset, batch_size=bs, shuffle=True, collate_fn=my_collate)
+trainLoader = DataLoader(train_set, batch_size=bs, shuffle=True, collate_fn=my_collate)
+testLoader = DataLoader(test_set, batch_size=bs, shuffle=True, collate_fn=my_collate)
 
 for epoch in range(epochs):
 
@@ -159,7 +162,7 @@ for epoch in range(epochs):
         loss = criterion(outputs.float(), targets.float())
         test_error += loss.item() / (len(testLoader))
 
-    print(f"    Epoch {epoch + 1}, Train err: {train_error}, Test err: {test_error}")
+    print(f"    Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
     train_errors.append(train_error)
     test_errors.append(test_error)
 
