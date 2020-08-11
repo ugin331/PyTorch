@@ -111,9 +111,9 @@ def my_collate(batch):
 
 # variables and things
 epochs = 100
-split = 0.7
+split = 0.9
 bs = 16
-lr = 0.2
+lr = 0.05
 
 dataset = simdata(root_dir='./data/simdata')
 train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset)+1)])
@@ -123,7 +123,7 @@ train_set_len = int(split*len(dataset))
 model = testNet(10, 100, 10, 1)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr)
-scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=5)
+scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=2)
 
 test_errors = []
 train_errors = []
@@ -146,7 +146,7 @@ for epoch in range(epochs):
 
         optimizer.zero_grad()
         predict = model(inputs)
-        loss = criterion(inputs, target)
+        loss = criterion(predict, target)
         train_error += loss.item() / len(trainLoader)
 
         loss.backward()
@@ -160,7 +160,7 @@ for epoch in range(epochs):
         loss = criterion(outputs.float(), targets.float())
         test_error += loss.item() / (len(testLoader))
 
-    scheduler.step(test_error)
+    # scheduler.step(test_error)
 
     print(f"Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
     train_errors.append(train_error)
@@ -171,12 +171,18 @@ total = 0
 model.eval()  # prep model for testing
 
 # validation set here or somethign
-
+# REWRITE THIS
 with torch.no_grad():
     for data, target in testLoader:
         outputs = model(data)
         _, predicted = torch.max(outputs.data, 1)
+        print("yyyyy")
+        print(outputs)
+        print("kzjejfj")
+        print(target)
         total += target.size(0)
+        print(total)
         correct += (predicted == target).sum().item()
+        print(correct)
 
 print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
