@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torch.utils.data import random_split
@@ -108,27 +109,24 @@ def my_collate(batch):
     return data, target
 
 
-dataset = simdata(root_dir='./data/simdata')
-
-model = testNet(10, 50, 3, 1)
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.01)
-
 # variables and things
 epochs = 100
 split = 0.7
 bs = 16
+lr = 0.2
+
+dataset = simdata(root_dir='./data/simdata')
+train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset)+1)])
+
+train_set_len = int(split*len(dataset))
+
+model = testNet(10, 100, 10, 1)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=lr)
+scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=5)
 
 test_errors = []
 train_errors = []
-
-# train_set = dataset[:int(split * len(dataset))]
-# print("train_set length:")
-# print(len(train_set))
-# print(train_set)
-# test_set = dataset[int(split * len(dataset)):]
-
-train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset)+1)])
 
 # load data and do things here
 trainLoader = DataLoader(train_set, batch_size=bs, shuffle=True, collate_fn=my_collate)
@@ -149,7 +147,7 @@ for epoch in range(epochs):
         optimizer.zero_grad()
         predict = model(inputs)
         loss = criterion(inputs, target)
-        train_error += loss.item()
+        train_error += loss.item() / len(trainLoader)
 
         loss.backward()
         optimizer.step()
@@ -162,9 +160,23 @@ for epoch in range(epochs):
         loss = criterion(outputs.float(), targets.float())
         test_error += loss.item() / (len(testLoader))
 
-    print(f"    Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
+    scheduler.step(test_error)
+
+    print(f"Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
     train_errors.append(train_error)
     test_errors.append(test_error)
 
+correct = 0
+total = 0
+model.eval()  # prep model for testing
+
 # validation set here or somethign
 
+with torch.no_grad():
+    for data, target in testLoader:
+        outputs = model(data)
+        _, predicted = torch.max(outputs.data, 1)
+        total += target.size(0)
+        correct += (predicted == target).sum().item()
+
+print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
