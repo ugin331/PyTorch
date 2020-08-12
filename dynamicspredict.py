@@ -13,12 +13,17 @@ import pandas as pd
 
 
 def normalize_data(norm_tensor, tensor_max, tensor_min):
-    for row in norm_tensor:
-        for x in row:
-            num = x.item()
-            adjusted = (2 * (num - tensor_min) / (tensor_max - tensor_min)) - 1
-            x = torch.tensor(adjusted)
-            x = x.type(torch.float64)
+    norm_tensor -= tensor_min
+    norm_tensor *= 2
+    norm_tensor /= (tensor_max - tensor_min)
+    norm_tensor -= 1
+
+    # for row in norm_tensor:
+    #     for x in row:
+    #         num = x.item()
+    #         adjusted = (2 * (num - tensor_min) / (tensor_max - tensor_min)) - 1
+    #         x = torch.tensor(adjusted)
+    #         x = x.type(torch.float64)
 
     return norm_tensor
 
@@ -166,23 +171,43 @@ for epoch in range(epochs):
     train_errors.append(train_error)
     test_errors.append(test_error)
 
+
+def comp_tensor(predict, target, diffpercent):
+    correct = 0
+    predict_copy = predict.numpy()
+    target_copy = target.numpy()
+    length = len(predict_copy)
+    for i in range(0, length):
+        predict_val = predict_copy[i]
+        target_val = target_copy[i]
+        # print("predicted value:")
+        # print(predict_val)
+        # print("target value:")
+        # print(target_val)
+        print("diff percent: ")
+        print(abs(target_val - predict_val) / target_val)
+        # print(" ")
+        if abs(target_val - predict_val)/target_val <= diffpercent:
+            correct += 1
+    return correct
+
+
+
 correct = 0
 total = 0
+diffpercent = 0.01
 model.eval()  # prep model for testing
 
 # validation set here or somethign
 # REWRITE THIS
 with torch.no_grad():
     for data, target in testLoader:
+        # print(data)
         outputs = model(data)
-        _, predicted = torch.max(outputs.data, 1)
-        print("yyyyy")
-        print(outputs)
-        print("kzjejfj")
-        print(target)
-        total += target.size(0)
-        print(total)
-        correct += (predicted == target).sum().item()
+        # print(outputs)
+        # print(target)
+        total += torch.numel(target)
+        correct += comp_tensor(outputs, target, diffpercent)
         print(correct)
 
 print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
