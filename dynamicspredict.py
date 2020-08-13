@@ -1,7 +1,6 @@
 import torch as torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
@@ -9,25 +8,38 @@ from torch.utils.data import Dataset
 from torch.utils.data import random_split
 import numpy as np
 from collections import OrderedDict
-import pandas as pd
 
-
+# data normalization
 def normalize_data(norm_tensor, tensor_max, tensor_min):
     norm_tensor -= tensor_min
     norm_tensor *= 2
     norm_tensor /= (tensor_max - tensor_min)
     norm_tensor -= 1
-
-    # for row in norm_tensor:
-    #     for x in row:
-    #         num = x.item()
-    #         adjusted = (2 * (num - tensor_min) / (tensor_max - tensor_min)) - 1
-    #         x = torch.tensor(adjusted)
-    #         x = x.type(torch.float64)
-
     return norm_tensor
 
 
+# compare two tensors for validation
+def comp_tensor(predict, target, diffpercent):
+    correct = 0
+    predict_copy = predict.numpy()
+    target_copy = target.numpy()
+    length = len(predict_copy)
+    for i in range(0, length):
+        predict_val = predict_copy[i]
+        target_val = target_copy[i]
+        # print("predicted value:")
+        # print(predict_val)
+        # print("target value:")
+        # print(target_val)
+        print("diff percent: ")
+        print(abs(abs(target_val - predict_val) / target_val))
+        # print(" ")
+        if abs(abs(target_val - predict_val)/target_val) <= diffpercent:
+            correct += 1
+    return correct
+
+
+# dataset class for simulated data
 class simdata(Dataset):
     # Characterizes a dataset for PyTorch
     def __init__(self, root_dir):
@@ -39,20 +51,20 @@ class simdata(Dataset):
         states = np.load(root_dir+'/states.npy')
 
         # turn them to tensors
-        actions = torch.from_numpy(actions)
-        actions = actions.type(torch.float64)
-        deltas = torch.from_numpy(deltas)
-        deltas = deltas.unsqueeze(1)
-        states = torch.from_numpy(states)
+        actions2 = torch.from_numpy(actions)
+        actions2 = actions2.type(torch.float64)
+        deltas2 = torch.from_numpy(deltas)
+        deltas2 = deltas2.unsqueeze(1)
+        states2 = torch.from_numpy(states)
 
         # concat states and deltas
-        data = torch.cat((states, actions), dim=1)
+        data = torch.cat((states2, actions2), dim=1)
         data_max = torch.max(data)
         data_max = data_max.item()
         data_min = torch.min(data)
         data_min = data_min.item()
         data = normalize_data(data, data_max, data_min)
-        targets = deltas
+        targets = deltas2
         targets = normalize_data(targets, data_max, data_min)
 
         self.data = []
@@ -71,6 +83,7 @@ class simdata(Dataset):
         return x, y
 
 
+# neural network class
 class testNet(nn.Module):
     def __init__(self, n_in, hidden_w, depth, n_out):
         super(testNet, self).__init__()
@@ -99,6 +112,7 @@ class testNet(nn.Module):
         # optimize dataset and stuff
 
 
+# custom collate function for dataset
 def my_collate(batch):
     data = []
     target = []
@@ -171,31 +185,9 @@ for epoch in range(epochs):
     train_errors.append(train_error)
     test_errors.append(test_error)
 
-
-def comp_tensor(predict, target, diffpercent):
-    correct = 0
-    predict_copy = predict.numpy()
-    target_copy = target.numpy()
-    length = len(predict_copy)
-    for i in range(0, length):
-        predict_val = predict_copy[i]
-        target_val = target_copy[i]
-        # print("predicted value:")
-        # print(predict_val)
-        # print("target value:")
-        # print(target_val)
-        print("diff percent: ")
-        print(abs(target_val - predict_val) / target_val)
-        # print(" ")
-        if abs(target_val - predict_val)/target_val <= diffpercent:
-            correct += 1
-    return correct
-
-
-
 correct = 0
 total = 0
-diffpercent = 0.01
+diffpercent = 0.0000002
 model.eval()  # prep model for testing
 
 # validation set here or somethign
@@ -204,6 +196,7 @@ with torch.no_grad():
     for data, target in testLoader:
         # print(data)
         outputs = model(data)
+        # print(outputs)
         # print(outputs)
         # print(target)
         total += torch.numel(target)
