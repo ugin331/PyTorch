@@ -9,6 +9,7 @@ from torch.utils.data import random_split
 import numpy as np
 from collections import OrderedDict
 
+
 # data normalization
 def normalize_data(norm_tensor, tensor_max, tensor_min):
     norm_tensor -= tensor_min
@@ -31,8 +32,8 @@ def comp_tensor(predict, target, diffpercent):
         # print(predict_val)
         # print("target value:")
         # print(target_val)
-        print("diff percent: ")
-        print(abs(abs(target_val - predict_val) / target_val))
+        # print("diff percent: ")
+        # print(abs(abs(target_val - predict_val) / target_val))
         # print(" ")
         if abs(abs(target_val - predict_val)/target_val) <= diffpercent:
             correct += 1
@@ -47,24 +48,26 @@ class simdata(Dataset):
 
         # load npy files
         actions = np.load(root_dir+'/actions.npy')
-        deltas = np.load(root_dir+'/deltas.npy')
         states = np.load(root_dir+'/states.npy')
 
         # turn them to tensors
-        actions2 = torch.from_numpy(actions)
-        actions2 = actions2.type(torch.float64)
-        deltas2 = torch.from_numpy(deltas)
-        deltas2 = deltas2.unsqueeze(1)
-        states2 = torch.from_numpy(states)
+        actions = torch.from_numpy(actions)
+        actions = actions.type(torch.float64)
+        states = torch.from_numpy(states)
+        deltas = states[1:, :] - states[:-1, :]
 
         # concat states and deltas
-        data = torch.cat((states2, actions2), dim=1)
+        data = torch.cat((states, actions), dim=1)
+        data = data[:-1]
+        print(deltas.size())
+        print(data.size())
+
         data_max = torch.max(data)
         data_max = data_max.item()
         data_min = torch.min(data)
         data_min = data_min.item()
         data = normalize_data(data, data_max, data_min)
-        targets = deltas2
+        targets = deltas
         targets = normalize_data(targets, data_max, data_min)
 
         self.data = []
@@ -139,7 +142,7 @@ train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-spl
 
 train_set_len = int(split*len(dataset))
 
-model = testNet(10, 100, 10, 1)
+model = testNet(10, 100, 10, 6)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=2)
@@ -188,17 +191,22 @@ for epoch in range(epochs):
 correct = 0
 total = 0
 diffpercent = 0.0000002
+i = 0
 model.eval()  # prep model for testing
 
 # validation set here or somethign
 # REWRITE THIS
 with torch.no_grad():
     for data, target in testLoader:
-        # print(data)
+        if i < 2:
+            print(i)
+            print(data)
         outputs = model(data)
-        # print(outputs)
-        # print(outputs)
-        # print(target)
+        if i < 2:
+            print(outputs)
+            # print(outputs)
+            print(target)
+        i = i+1
         total += torch.numel(target)
         correct += comp_tensor(outputs, target, diffpercent)
         print(correct)
