@@ -19,24 +19,46 @@ def normalize_data(norm_tensor, tensor_max, tensor_min):
     return norm_tensor
 
 
+# get min + max in tensor column for better normalization(tm)
+def get_col_minmax(tensor, col):
+    data_max = torch.max(data)
+    data_max = data_max.item()
+    data_min = torch.min(data)
+    data_min = data_min.item()
+    for row in tensor:
+        lenrow = len(row)
+        for i in range(0, lenrow):
+            if row[i].item() > data_max:
+                data_max = row[i].item()
+
+
+
+
 # compare two tensors for validation
 def comp_tensor(predict, target, diffpercent):
     correct = 0
     predict_copy = predict.numpy()
     target_copy = target.numpy()
-    length = len(predict_copy)
-    for i in range(0, length):
-        predict_val = predict_copy[i]
-        target_val = target_copy[i]
-        # print("predicted value:")
-        # print(predict_val)
-        # print("target value:")
-        # print(target_val)
-        # print("diff percent: ")
-        # print(abs(abs(target_val - predict_val) / target_val))
-        # print(" ")
-        if abs(abs(target_val - predict_val)/target_val) <= diffpercent:
-            correct += 1
+    len_outer = len(predict_copy)
+    len_inner = len(predict_copy[0])
+    for i in range(0, len_outer):
+        for j in range(0, len_inner):
+
+            print("predicted val:")
+            predict_val = predict_copy[i][j]
+            print(predict_val)
+            print("target val:")
+            target_val = target_copy[i][j]
+            print(target_val)
+            # print("predicted value:")
+            # print(predict_val)
+            # print("target value:")
+            # print(target_val)
+            # print("diff percent: ")
+            # print(abs(abs(target_val - predict_val) / target_val))
+            # print(" ")
+            if abs(abs(target_val - predict_val)/target_val) <= diffpercent:
+                correct += 1
     return correct
 
 
@@ -132,7 +154,7 @@ def my_collate(batch):
 
 
 # variables and things
-epochs = 100
+epochs = 50
 split = 0.9
 bs = 16
 lr = 0.05
@@ -191,24 +213,15 @@ for epoch in range(epochs):
 correct = 0
 total = 0
 diffpercent = 0.0000002
-i = 0
 model.eval()  # prep model for testing
 
 # validation set here or somethign
 # REWRITE THIS
 with torch.no_grad():
     for data, target in testLoader:
-        if i < 2:
-            print(i)
-            print(data)
         outputs = model(data)
-        if i < 2:
-            print(outputs)
-            # print(outputs)
-            print(target)
-        i = i+1
         total += torch.numel(target)
         correct += comp_tensor(outputs, target, diffpercent)
-        print(correct)
+        # print(correct)
 
 print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
