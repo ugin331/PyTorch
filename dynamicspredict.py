@@ -11,27 +11,33 @@ from collections import OrderedDict
 
 
 # data normalization
-def normalize_data(norm_tensor, tensor_max, tensor_min):
-    norm_tensor -= tensor_min
-    norm_tensor *= 2
-    norm_tensor /= (tensor_max - tensor_min)
-    norm_tensor -= 1
+# swap to column based
+def normalize_data(norm_tensor, col, tensor_max, tensor_min):
+    sizetuple = norm_tensor.size()
+    numrows = sizetuple[0]
+    for i in range(0, numrows):
+        print(norm_tensor[i][col])
+        norm_tensor[i][col] -= tensor_min
+        norm_tensor[i][col] *= 2
+        norm_tensor[i][col] /= (tensor_max - tensor_min)
+        norm_tensor[i][col] -= 1
+        print(norm_tensor[i][col])
     return norm_tensor
 
 
 # get min + max in tensor column for better normalization(tm)
 def get_col_minmax(tensor, col):
-    data_max = torch.max(data)
+    data_max = torch.max(tensor)
     data_max = data_max.item()
-    data_min = torch.min(data)
+    data_min = torch.min(tensor)
     data_min = data_min.item()
     for row in tensor:
-        lenrow = len(row)
-        for i in range(0, lenrow):
-            if row[i].item() > data_max:
-                data_max = row[i].item()
-
-
+        if row[col].item() > data_max:
+            data_max = row[col].item()
+        if row[col].item() < data_min:
+            data_min = row[col].item()
+    print("column:", col, "column max:", data_max, "column min: ", data_min)
+    return data_max, data_min
 
 
 # compare two tensors for validation
@@ -39,23 +45,20 @@ def comp_tensor(predict, target, diffpercent):
     correct = 0
     predict_copy = predict.numpy()
     target_copy = target.numpy()
+    print(predict_copy)
     len_outer = len(predict_copy)
     len_inner = len(predict_copy[0])
     for i in range(0, len_outer):
         for j in range(0, len_inner):
 
-            print("predicted val:")
+            # print("predicted val:")
             predict_val = predict_copy[i][j]
-            print(predict_val)
-            print("target val:")
-            target_val = target_copy[i][j]
-            print(target_val)
-            # print("predicted value:")
             # print(predict_val)
-            # print("target value:")
+            # print("target val:")
+            target_val = target_copy[i][j]
             # print(target_val)
             # print("diff percent: ")
-            # print(abs(abs(target_val - predict_val) / target_val))
+            # print(abs(abs(target_val - predict_val) / target_val)*100)
             # print(" ")
             if abs(abs(target_val - predict_val)/target_val) <= diffpercent:
                 correct += 1
@@ -81,16 +84,19 @@ class simdata(Dataset):
         # concat states and deltas
         data = torch.cat((states, actions), dim=1)
         data = data[:-1]
+        targets = deltas
         print(deltas.size())
         print(data.size())
 
-        data_max = torch.max(data)
-        data_max = data_max.item()
-        data_min = torch.min(data)
-        data_min = data_min.item()
-        data = normalize_data(data, data_max, data_min)
-        targets = deltas
-        targets = normalize_data(targets, data_max, data_min)
+        numcols = data.size()[1]
+        for column in range(0, numcols):
+            data_max, data_min = get_col_minmax(data, column)
+            data = normalize_data(data, column, data_max, data_min)
+
+        numcols = targets.size()[1]
+        for column in range(0, numcols):
+            data_max, data_min = get_col_minmax(targets, column)
+            targets = normalize_data(targets, column, data_max, data_min)
 
         self.data = []
         for i in range(0, len(data)):
@@ -212,7 +218,7 @@ for epoch in range(epochs):
 
 correct = 0
 total = 0
-diffpercent = 0.0000002
+diffpercent = 0.01
 model.eval()  # prep model for testing
 
 # validation set here or somethign
