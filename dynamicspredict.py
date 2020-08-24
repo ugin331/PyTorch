@@ -16,27 +16,27 @@ def normalize_data(norm_tensor, col, tensor_max, tensor_min):
     sizetuple = norm_tensor.size()
     numrows = sizetuple[0]
     for i in range(0, numrows):
-        print(norm_tensor[i][col])
+        # print(norm_tensor[i][col])
         norm_tensor[i][col] -= tensor_min
         norm_tensor[i][col] *= 2
         norm_tensor[i][col] /= (tensor_max - tensor_min)
         norm_tensor[i][col] -= 1
-        print(norm_tensor[i][col])
+        # print(norm_tensor[i][col])
     return norm_tensor
 
 
 # get min + max in tensor column for better normalization(tm)
 def get_col_minmax(tensor, col):
-    data_max = torch.max(tensor)
+    data_max = torch.min(tensor)
     data_max = data_max.item()
-    data_min = torch.min(tensor)
+    data_min = torch.max(tensor)
     data_min = data_min.item()
     for row in tensor:
         if row[col].item() > data_max:
             data_max = row[col].item()
         if row[col].item() < data_min:
             data_min = row[col].item()
-    print("column:", col, "column max:", data_max, "column min: ", data_min)
+    # print("column:", col, "column max:", data_max, "column min: ", data_min)
     return data_max, data_min
 
 
@@ -45,7 +45,7 @@ def comp_tensor(predict, target, diffpercent):
     correct = 0
     predict_copy = predict.numpy()
     target_copy = target.numpy()
-    print(predict_copy)
+    # print(predict_copy)
     len_outer = len(predict_copy)
     len_inner = len(predict_copy[0])
     for i in range(0, len_outer):
@@ -85,8 +85,8 @@ class simdata(Dataset):
         data = torch.cat((states, actions), dim=1)
         data = data[:-1]
         targets = deltas
-        print(deltas.size())
-        print(data.size())
+        # print(deltas.size())
+        # print(data.size())
 
         numcols = data.size()[1]
         for column in range(0, numcols):
@@ -170,7 +170,8 @@ train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-spl
 
 train_set_len = int(split*len(dataset))
 
-model = testNet(10, 100, 10, 6)
+model = testNet(10, 100, 3, 6)
+print(model)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=2)
@@ -225,7 +226,10 @@ model.eval()  # prep model for testing
 # REWRITE THIS
 with torch.no_grad():
     for data, target in testLoader:
+        # print(data)
         outputs = model(data)
+        print(target)
+        print(outputs)
         total += torch.numel(target)
         correct += comp_tensor(outputs, target, diffpercent)
         # print(correct)
