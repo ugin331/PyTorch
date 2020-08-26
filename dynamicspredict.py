@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torch.utils.data import random_split
 import numpy as np
+import matplotlib
 from collections import OrderedDict
 
 
@@ -39,29 +40,28 @@ def get_col_minmax(tensor, col):
     # print("column:", col, "column max:", data_max, "column min: ", data_min)
     return data_max, data_min
 
-
-# compare two tensors for validation
 def comp_tensor(predict, target, diffpercent):
     correct = 0
-    predict_copy = predict.numpy()
-    target_copy = target.numpy()
-    # print(predict_copy)
-    len_outer = len(predict_copy)
-    len_inner = len(predict_copy[0])
-    for i in range(0, len_outer):
-        for j in range(0, len_inner):
+    num = torch.numel(predict)
+    tempcorrect = 0
+    for i in range(0, num):
+        predict_val = predict[i].item()
+        target_val = target[i].item()
+        if abs(abs(target_val - predict_val) / target_val) <= diffpercent:
+            tempcorrect += 1
 
-            # print("predicted val:")
-            predict_val = predict_copy[i][j]
-            # print(predict_val)
-            # print("target val:")
-            target_val = target_copy[i][j]
-            # print(target_val)
-            # print("diff percent: ")
-            # print(abs(abs(target_val - predict_val) / target_val)*100)
-            # print(" ")
-            if abs(abs(target_val - predict_val)/target_val) <= diffpercent:
-                correct += 1
+    print(tempcorrect, "correct out of 6")
+    if tempcorrect == 6:
+        correct += 1
+    return correct
+
+# compare two tensors for validation
+def compfunc(predict, target, diffpercent):
+    correct = 0
+    predict_copy = predict.numpy()
+    len_outer = len(predict_copy)
+    for i in range(0, len_outer):
+        correct += comp_tensor(predict[i], target[i], diffpercent)
     return correct
 
 
@@ -121,7 +121,7 @@ class testNet(nn.Module):
         self.n_in = n_in
         self.hidden_w = hidden_w
         self.depth = depth
-        self.activation = nn.ReLU()
+        self.activation = nn.Softmax()
         self.n_out = n_out
         layers = []
         layers.append(('dynm_input_lin', nn.Linear(self.n_in, self.hidden_w)))
@@ -161,16 +161,21 @@ def my_collate(batch):
 
 # variables and things
 epochs = 50
-split = 0.9
+split = 0.7
 bs = 16
 lr = 0.05
 
 dataset = simdata(root_dir='./data/simdata')
-train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset)+1)])
+print("dataset length:")
+print(len(dataset))
+train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset))])
+print("train_set length:")
+print(len(train_set))
+print("test_set length:")
+print(len(test_set))
 
-train_set_len = int(split*len(dataset))
-
-model = testNet(10, 100, 3, 6)
+#train_set_len = int(split*len(dataset))
+model = testNet(10, 100, 2, 6)
 print(model)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -191,27 +196,25 @@ for epoch in range(epochs):
 
     for i, data in enumerate(trainLoader):
 
-        inputs, target = data
+        inputs, targets = data
         inputs = Variable(inputs, requires_grad=True)
-        target = Variable(target, requires_grad=True)
+        targets = Variable(targets, requires_grad=True)
 
         optimizer.zero_grad()
         predict = model(inputs)
-        loss = criterion(predict, target)
+        loss = criterion(predict, targets)
         train_error += loss.item() / len(trainLoader)
 
         loss.backward()
         optimizer.step()
 
     for i, data in enumerate(testLoader):
-
         inputs, targets = data
-
         outputs = model(inputs)
         loss = criterion(outputs.float(), targets.float())
         test_error += loss.item() / (len(testLoader))
 
-    # scheduler.step(test_error)
+    scheduler.step(test_error)
 
     print(f"Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
     train_errors.append(train_error)
@@ -219,19 +222,25 @@ for epoch in range(epochs):
 
 correct = 0
 total = 0
-diffpercent = 0.01
+diffpercent = 0.05
 model.eval()  # prep model for testing
 
 # validation set here or somethign
 # REWRITE THIS
 with torch.no_grad():
-    for data, target in testLoader:
-        # print(data)
+    for data, targets in testLoader:
+        #print(data)
         outputs = model(data)
-        print(target)
-        print(outputs)
-        total += torch.numel(target)
-        correct += comp_tensor(outputs, target, diffpercent)
-        # print(correct)
+        #print("targets")
+        #print(targets)
+        #print("outputs")
+        #print(outputs)
+        tgtcpy = targets.numpy()
+        tgtlen = len(tgtcpy)
+        total += tgtlen
+        correct += compfunc(outputs, targets, diffpercent)
 
+
+print('threshold is  %%%f' % ((diffpercent*100)))
+print('Accuracy of the network on the test set: %d out of %d' % (correct, total))
 print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
