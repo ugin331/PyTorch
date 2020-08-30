@@ -7,7 +7,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torch.utils.data import random_split
 import numpy as np
-import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 from collections import OrderedDict
 
 
@@ -219,6 +220,13 @@ for epoch in range(epochs):
     print(f"Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
     train_errors.append(train_error)
     test_errors.append(test_error)
+
+train_legend = mlines.Line2D([], [], color='blue', label='Train Loss')
+test_legend = mlines.Line2D([], [], color='orange', label='Test Loss')
+plt.plot(train_errors, label="train loss")
+plt.plot(test_errors, color="orange", label="test loss")
+plt.legend(handles=[train_legend, test_legend])
+plt.savefig('dynamicslossgraph.png')
 
 correct = 0
 total = 0
