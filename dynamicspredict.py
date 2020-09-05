@@ -41,6 +41,7 @@ def get_col_minmax(tensor, col):
     # print("column:", col, "column max:", data_max, "column min: ", data_min)
     return data_max, data_min
 
+diffs =[]
 def comp_tensor(predict, target, diffpercent):
     correct = 0
     num = torch.numel(predict)
@@ -48,6 +49,7 @@ def comp_tensor(predict, target, diffpercent):
     for i in range(0, num):
         predict_val = predict[i].item()
         target_val = target[i].item()
+        diffs.append(100*abs(abs(target_val - predict_val) / target_val))
         if abs(abs(target_val - predict_val) / target_val) <= diffpercent:
             tempcorrect += 1
 
@@ -227,6 +229,7 @@ plt.plot(train_errors, label="train loss")
 plt.plot(test_errors, color="orange", label="test loss")
 plt.legend(handles=[train_legend, test_legend])
 plt.savefig('dynamicslossgraph.png')
+plt.close()
 
 correct = 0
 total = 0
@@ -248,6 +251,13 @@ with torch.no_grad():
         total += tgtlen
         correct += compfunc(outputs, targets, diffpercent)
 
+diffFig = plt.figure()
+ax1 = diffFig.add_subplot()
+ax1.hist(diffs, 20, (0, 100))
+ax1.set_xlabel("% difference between predicted and target value")
+ax1.set_ylabel("number of occurrences")
+plt.savefig('diffpercent.png')
+plt.show()
 
 print('threshold is  %%%f' % ((diffpercent*100)))
 print('Accuracy of the network on the test set: %d out of %d' % (correct, total))
