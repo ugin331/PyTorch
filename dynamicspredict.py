@@ -26,6 +26,15 @@ def normalize_data(norm_tensor, col, tensor_max, tensor_min):
         # print(norm_tensor[i][col])
     return norm_tensor
 
+def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
+    sizetuple = norm_tensor.size()
+    numrows = sizetuple[0]
+    for i in range(0, numrows):
+        norm_tensor[i][col] += 1
+        norm_tensor[i][col] *= (tensor_max-tensor_min)
+        norm_tensor[i][col] /= 2
+        norm_tensor[i][col] += tensor_min
+    return norm_tensor
 
 # get min + max in tensor column for better normalization(tm)
 def get_col_minmax(tensor, col):
@@ -49,6 +58,7 @@ def comp_tensor(predict, target, diffpercent):
     for i in range(0, num):
         predict_val = predict[i].item()
         target_val = target[i].item()
+        print("predict val:", predict_val, "target_val:",target_val)
         diffs.append(100*abs(abs(target_val - predict_val) / target_val))
         if abs(abs(target_val - predict_val) / target_val) <= diffpercent:
             tempcorrect += 1
@@ -67,6 +77,7 @@ def compfunc(predict, target, diffpercent):
         correct += comp_tensor(predict[i], target[i], diffpercent)
     return correct
 
+delta_col_minmax = []
 
 # dataset class for simulated data
 class simdata(Dataset):
@@ -88,6 +99,7 @@ class simdata(Dataset):
         data = torch.cat((states, actions), dim=1)
         data = data[:-1]
         targets = deltas
+        print(targets)
         # print(deltas.size())
         # print(data.size())
 
@@ -99,6 +111,7 @@ class simdata(Dataset):
         numcols = targets.size()[1]
         for column in range(0, numcols):
             data_max, data_min = get_col_minmax(targets, column)
+            delta_col_minmax.append((data_max, data_min))
             targets = normalize_data(targets, column, data_max, data_min)
 
         self.data = []
@@ -242,14 +255,25 @@ with torch.no_grad():
     for data, targets in testLoader:
         #print(data)
         outputs = model(data)
-        #print("targets")
-        #print(targets)
-        #print("outputs")
-        #print(outputs)
+        numcols = targets.size()[1]
+        for column in range(0, numcols):
+            data_max, data_min = delta_col_minmax[column]
+            denormalize_data(outputs, column, data_max, data_min)
+            denormalize_data(targets, column, data_max, data_min)
+
+        # print("targets")
+        # print(targets)
+        # print("outputs")
+        # print(outputs)
+
         tgtcpy = targets.numpy()
         tgtlen = len(tgtcpy)
         total += tgtlen
         correct += compfunc(outputs, targets, diffpercent)
+
+print('threshold is  %%%f' % ((diffpercent*100)))
+print('Accuracy of the network on the test set: %d out of %d' % (correct, total))
+print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
 
 diffFig = plt.figure()
 ax1 = diffFig.add_subplot()
@@ -259,6 +283,26 @@ ax1.set_ylabel("number of occurrences")
 plt.savefig('diffpercent.png')
 plt.show()
 
-print('threshold is  %%%f' % ((diffpercent*100)))
-print('Accuracy of the network on the test set: %d out of %d' % (correct, total))
-print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total)))
+# with torch.no_grad():
+    # for data, targets in trainLoader:
+        # print(data)
+        # outputs = model(data)
+        # print("targets")
+        # print(targets)
+        # print("outputs")
+        # print(outputs)
+        # tgtcpy = targets.numpy()
+        # tgtlen = len(tgtcpy)
+        # total += tgtlen
+        # correct += compfunc(outputs, targets, diffpercent)
+#
+# print('threshold is  %%%f' % ((diffpercent*100)))
+# print('Accuracy of the network on the train set: %d out of %d' % (correct, total))
+# print('Accuracy of the network on the train set: %d %%' % ((100 * correct / total)))
+
+# diffFig = plt.figure()
+# ax1 = diffFig.add_subplot()
+# ax1.hist(diffs, 20, (0, 100))
+# ax1.set_xlabel("% difference between predicted and target value")
+# ax1.set_ylabel("number of occurrences")
+# plt.show()
