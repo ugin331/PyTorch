@@ -26,6 +26,34 @@ def normalize_data(norm_tensor, col, tensor_max, tensor_min):
         # print(norm_tensor[i][col])
     return norm_tensor
 
+def remove_outliers(data_tensor, target_tensor):
+    rows_to_elim = []
+
+    # loop thru each column, get mean and std of column
+    numcols = data_tensor.size()[1]
+    numrows = data_tensor.size()[0]
+    for colnum in range(0, numcols):
+        temp_vals = np.empty(numrows)
+        # generate temp column tensor
+        for rownum in range(0, numrows):
+            temp_vals[rownum] = data_tensor[rownum][colnum]
+
+        col_tensor = torch.from_numpy(temp_vals)
+        col_tensor = torch.floatTensor(col_tensor)
+        # get mean and std of data tensor
+        col_mean = torch.mean(col_tensor)
+        col_std = torch.std(col_tensor)
+        offset = col_std * 5
+
+        # go through and identify outliers
+        for rownum in range(0, numrows):
+            element = data_tensor[rownum][colnum]
+            if element <= col_mean-offset or element >= col_mean+offset:
+                if not rownum in rows_to_elim:
+                    rows_to_elim.append(rownum)
+
+    # eliminate rows from data and target here I suppose
+
 def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
     sizetuple = norm_tensor.size()
     numrows = sizetuple[0]
