@@ -12,9 +12,8 @@ import matplotlib.lines as mlines
 from collections import OrderedDict
 
 
-# data normalization
-# swap to column based
-def normalize_data(norm_tensor, col, tensor_max, tensor_min):
+# DEPRECIATED NORMALIZATION
+"""def normalize_data(norm_tensor, col, tensor_max, tensor_min):
     sizetuple = norm_tensor.size()
     numrows = sizetuple[0]
     for i in range(0, numrows):
@@ -26,6 +25,19 @@ def normalize_data(norm_tensor, col, tensor_max, tensor_min):
         # print(norm_tensor[i][col])
     return norm_tensor
 
+
+def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
+    sizetuple = norm_tensor.size()
+    numrows = sizetuple[0]
+    for i in range(0, numrows):
+        norm_tensor[i][col] += 1
+        norm_tensor[i][col] *= (tensor_max-tensor_min)
+        norm_tensor[i][col] /= 2
+        norm_tensor[i][col] += tensor_min
+    return norm_tensor"""
+
+
+# remove all outliers greater than 5 standard deviations away from center
 def remove_outliers(data_tensor, target_tensor):
     rows_to_elim = []
 
@@ -52,17 +64,25 @@ def remove_outliers(data_tensor, target_tensor):
                 if not rownum in rows_to_elim:
                     rows_to_elim.append(rownum)
 
-    # eliminate rows from data and target here I suppose
+    # eliminate rows from data and target here
+    # convert to np, delete all relevant rows, then return to tensor of type floatTensor
+    np_data_tensor = data_tensor.numpy()
+    np_target_tensor = target_tensor.numpy()
+    np_data_tensor = np.delete(np_data_tensor, rows_to_elim, 0)
+    np_target_tensor = np.delete(np_target_tensor, rows_to_elim, 0)
 
-def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
-    sizetuple = norm_tensor.size()
-    numrows = sizetuple[0]
-    for i in range(0, numrows):
-        norm_tensor[i][col] += 1
-        norm_tensor[i][col] *= (tensor_max-tensor_min)
-        norm_tensor[i][col] /= 2
-        norm_tensor[i][col] += tensor_min
-    return norm_tensor
+    data_tensor = np_data_tensor.from_numpy()
+    target_tensor =  np_target_tensor.from_numpy()
+
+    data_tensor, target_tensor = data_tensor.type(torch.FloatTensor), target_tensor.type(torch.FloatTensor)
+
+    return data_tensor, target_tensor
+
+
+def gaussian(data_tensor, target_tensor):
+    # thing
+    return
+
 
 # get min + max in tensor column for better normalization(tm)
 def get_col_minmax(tensor, col):
@@ -78,7 +98,11 @@ def get_col_minmax(tensor, col):
     # print("column:", col, "column max:", data_max, "column min: ", data_min)
     return data_max, data_min
 
-diffs =[]
+
+diffs = []
+
+
+# compare tensors together, return number correct (used in compfunc below)
 def comp_tensor(predict, target, diffpercent):
     correct = 0
     num = torch.numel(predict)
@@ -96,6 +120,7 @@ def comp_tensor(predict, target, diffpercent):
         correct += 1
     return correct
 
+
 # compare two tensors for validation
 def compfunc(predict, target, diffpercent):
     correct = 0
@@ -105,9 +130,12 @@ def compfunc(predict, target, diffpercent):
         correct += comp_tensor(predict[i], target[i], diffpercent)
     return correct
 
+
+# delta column min/max, depreciated
 delta_col_minmax = []
 
-# dataset class for simulated data
+
+# dataset class for data
 class simdata(Dataset):
     # Characterizes a dataset for PyTorch
     def __init__(self, root_dir):
@@ -131,7 +159,8 @@ class simdata(Dataset):
         # print(deltas.size())
         # print(data.size())
 
-        numcols = data.size()[1]
+        # DEPRECIATED CODE
+        """numcols = data.size()[1]
         for column in range(0, numcols):
             data_max, data_min = get_col_minmax(data, column)
             data = normalize_data(data, column, data_max, data_min)
@@ -140,7 +169,10 @@ class simdata(Dataset):
         for column in range(0, numcols):
             data_max, data_min = get_col_minmax(targets, column)
             delta_col_minmax.append((data_max, data_min))
-            targets = normalize_data(targets, column, data_max, data_min)
+            targets = normalize_data(targets, column, data_max, data_min)"""
+
+        data, targets = remove_outliers(data, targets)
+        data, targets = gaussian(data, targets)
 
         self.data = []
         for i in range(0, len(data)):
@@ -177,14 +209,13 @@ class testNet(nn.Module):
         layers.append(('dynm_out_lin', nn.Linear(self.hidden_w, self.n_out)))
         self.features = nn.Sequential(OrderedDict([*layers]))
 
-
     def forward(self, x):
         x = self.features(x)
         return x
 
     def optimize(self, dataset):
         print("stuff")
-        # optimize dataset and stuff
+        # TODO: Optimize Dataset
 
 
 # custom collate function for dataset
@@ -218,7 +249,7 @@ print(len(train_set))
 print("test_set length:")
 print(len(test_set))
 
-#train_set_len = int(split*len(dataset))
+# train_set_len = int(split*len(dataset))
 model = testNet(10, 100, 2, 6)
 print(model)
 criterion = nn.MSELoss()
@@ -277,11 +308,11 @@ total = 0
 diffpercent = 0.05
 model.eval()  # prep model for testing
 
-# validation set here or somethign
-# REWRITE THIS
+# validation set here
+# TODO: REWRITE THIS
 with torch.no_grad():
     for data, targets in testLoader:
-        #print(data)
+        # print(data)
         outputs = model(data)
         numcols = targets.size()[1]
         for column in range(0, numcols):
