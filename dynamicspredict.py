@@ -42,6 +42,7 @@ def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
 
 # remove all outliers greater than 5 standard deviations away from center
 def remove_outliers(data_tensor, target_tensor):
+    print("removing outliers")
     rows_to_elim = []
 
     # loop thru each column, get mean and std of column
@@ -57,7 +58,7 @@ def remove_outliers(data_tensor, target_tensor):
         # get mean and std of data tensor
         col_mean = torch.mean(col_tensor)
         col_std = torch.std(col_tensor)
-        offset = col_std * 5
+        offset = col_std * 4
         # print("column mean:", col_mean)
         # print("column std:", col_std)
         # print("outlier offset:", offset)
@@ -70,7 +71,6 @@ def remove_outliers(data_tensor, target_tensor):
                     print("eliminating row:", rownum)
                     # print(data_tensor[rownum])
                     rows_to_elim.append(rownum)
-        print()
 
     # eliminate rows from data and target here
     # convert to np, delete all relevant rows, then return to tensor of type FloatTensor
@@ -84,9 +84,9 @@ def remove_outliers(data_tensor, target_tensor):
 
     data_tensor, target_tensor = data_tensor.type(torch.FloatTensor), target_tensor.type(torch.FloatTensor)
 
-    print("normalized tensors:")
-    print(data_tensor)
-    print(target_tensor)
+    # print("outliers removed:")
+    # print(data_tensor)
+    # print(target_tensor)
 
     return data_tensor, target_tensor
 
@@ -122,7 +122,6 @@ def z_score(data_tensor, target_tensor):
         for rownum in range(0, numrows):
             data_tensor[rownum][colnum] -= col_mean
             data_tensor[rownum][colnum] /= col_std
-    print()
     # z-score norm on targets
     print("targets:")
     numcols = target_tensor.size()[1]
@@ -147,14 +146,38 @@ def z_score(data_tensor, target_tensor):
             target_tensor[rownum] -= tgt_mean
             target_tensor[rownum] /= tgt_std
 
-    print("final normalized targets:")
+    print("normalized tensors:")
     print(data_tensor)
     print(target_tensor)
     return data_tensor, target_tensor
 
 
-def denormalize_data(data_tensor, target_tensor):
-    return
+def denormalize_data(output_tensor, target_tensor):
+    # de-normalize data
+    '''numcols = data_tensor.size()[1]
+    numrows = data_tensor.size()[0]
+    for colnum in range(0, numcols):
+        col_std = col_std_data[colnum]
+        col_mean = col_mean_data[colnum]
+        for rownum in range(0, numrows):
+            data_tensor[rownum][colnum] *= col_std
+            data_tensor[rownum][colnum] += col_mean'''
+    # de-normalize targets
+    numcols = target_tensor.size()[1]
+    numrows = target_tensor.size()[0]
+    for colnum in range(0, numcols):
+        tgt_std = col_std_tgt[colnum]
+        tgt_mean = col_mean_tgt[colnum]
+        # reverse operations
+        for rownum in range(0, numrows):
+            target_tensor[rownum] *= tgt_std
+            target_tensor[rownum] += tgt_mean
+            output_tensor[rownum] *= tgt_std
+            output_tensor[rownum] += tgt_mean
+    print("final denormalized targets:")
+    print(target_tensor)
+    print(target_tensor)
+    return output_tensor, target_tensor
 
 
 # get min + max in tensor column for better normalization(tm)
@@ -179,18 +202,17 @@ diffs = []
 def comp_tensor(predict, target, diffpercent):
     correct = 0
     num = torch.numel(predict)
-    tempcorrect = 0
+    # tempcorrect = 0
     for i in range(0, num):
         predict_val = predict[i].item()
         target_val = target[i].item()
         print("predict val:", predict_val, "target_val:",target_val)
         diffs.append(100*abs(abs(target_val - predict_val) / target_val))
         if abs(abs(target_val - predict_val) / target_val) <= diffpercent:
-            tempcorrect += 1
-
-    print(tempcorrect, "correct out of 6")
-    if tempcorrect == 6:
-        correct += 1
+            correct += 1
+    print(correct, "correct out of 6")
+    # if tempcorrect == 6:
+    #    correct += 1
     return correct
 
 
@@ -329,7 +351,7 @@ print(len(test_set))
 
 # train_set_len = int(split*len(dataset))
 model = testNet(10, 100, 2, 6)
-print(model)
+# print(model)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr)
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=2)
@@ -393,11 +415,7 @@ with torch.no_grad():
         # print(data)
         outputs = model(data)
         numcols = targets.size()[1]
-        for column in range(0, numcols):
-            data_max, data_min = delta_col_minmax[column]
-            denormalize_data(outputs, column, data_max, data_min)
-            denormalize_data(targets, column, data_max, data_min)
-
+        outputs, targets = denormalize_data(outputs, targets)
         # print("targets")
         # print(targets)
         # print("outputs")
@@ -405,7 +423,7 @@ with torch.no_grad():
 
         tgtcpy = targets.numpy()
         tgtlen = len(tgtcpy)
-        total += tgtlen
+        total += tgtlen*6
         correct += compfunc(outputs, targets, diffpercent)
 
 print('threshold is  %%%f' % ((diffpercent*100)))
