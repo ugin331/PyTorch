@@ -10,10 +10,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from collections import OrderedDict
+import math
 
 
 # DEPRECIATED NORMALIZATION
-"""def normalize_data(norm_tensor, col, tensor_max, tensor_min):
+"""
+def normalize_data(norm_tensor, col, tensor_max, tensor_min):
     sizetuple = norm_tensor.size()
     numrows = sizetuple[0]
     for i in range(0, numrows):
@@ -34,7 +36,8 @@ def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
         norm_tensor[i][col] *= (tensor_max-tensor_min)
         norm_tensor[i][col] /= 2
         norm_tensor[i][col] += tensor_min
-    return norm_tensor"""
+    return norm_tensor
+"""
 
 
 # remove all outliers greater than 5 standard deviations away from center
@@ -50,37 +53,107 @@ def remove_outliers(data_tensor, target_tensor):
         for rownum in range(0, numrows):
             temp_vals[rownum] = data_tensor[rownum][colnum]
 
-        col_tensor = torch.from_numpy(temp_vals)
-        col_tensor = torch.floatTensor(col_tensor)
+        col_tensor = torch.from_numpy(temp_vals).float()
         # get mean and std of data tensor
         col_mean = torch.mean(col_tensor)
         col_std = torch.std(col_tensor)
         offset = col_std * 5
+        # print("column mean:", col_mean)
+        # print("column std:", col_std)
+        # print("outlier offset:", offset)
 
         # go through and identify outliers
         for rownum in range(0, numrows):
             element = data_tensor[rownum][colnum]
             if element <= col_mean-offset or element >= col_mean+offset:
                 if not rownum in rows_to_elim:
+                    print("eliminating row:", rownum)
+                    # print(data_tensor[rownum])
                     rows_to_elim.append(rownum)
+        print()
 
     # eliminate rows from data and target here
-    # convert to np, delete all relevant rows, then return to tensor of type floatTensor
+    # convert to np, delete all relevant rows, then return to tensor of type FloatTensor
     np_data_tensor = data_tensor.numpy()
     np_target_tensor = target_tensor.numpy()
     np_data_tensor = np.delete(np_data_tensor, rows_to_elim, 0)
     np_target_tensor = np.delete(np_target_tensor, rows_to_elim, 0)
 
-    data_tensor = np_data_tensor.from_numpy()
-    target_tensor =  np_target_tensor.from_numpy()
+    data_tensor = torch.from_numpy(np_data_tensor)
+    target_tensor =  torch.from_numpy(np_target_tensor)
 
     data_tensor, target_tensor = data_tensor.type(torch.FloatTensor), target_tensor.type(torch.FloatTensor)
+
+    print("normalized tensors:")
+    print(data_tensor)
+    print(target_tensor)
 
     return data_tensor, target_tensor
 
 
-def gaussian(data_tensor, target_tensor):
-    # thing
+col_mean_data=[]
+col_std_data=[]
+col_mean_tgt=[]
+col_std_tgt=[]
+
+
+# z_score normalization on data & targets
+def z_score(data_tensor, target_tensor):
+    # z-score on data
+    print("data:")
+    numcols = data_tensor.size()[1]
+    numrows = data_tensor.size()[0]
+    for colnum in range(0, numcols):
+        temp_vals = np.empty(numrows)
+        # generate temp column tensor
+        for rownum in range(0, numrows):
+            temp_vals[rownum] = data_tensor[rownum][colnum]
+
+        col_tensor = torch.from_numpy(temp_vals).float()
+        # get mean and std of data tensor
+        col_mean = torch.mean(col_tensor)
+        col_std = torch.std(col_tensor)
+        col_mean_data.append(col_mean)
+        col_std_data.append(col_std)
+        print("column mean:", col_mean)
+        print("column std:", col_std)
+
+        # go through and identify outliers
+        for rownum in range(0, numrows):
+            data_tensor[rownum][colnum] -= col_mean
+            data_tensor[rownum][colnum] /= col_std
+    print()
+    # z-score norm on targets
+    print("targets:")
+    numcols = target_tensor.size()[1]
+    numrows = target_tensor.size()[0]
+    for colnum in range(0, numcols):
+        temp_vals = np.empty(numrows)
+        # generate temp column tensor
+        for rownum in range(0, numrows):
+            temp_vals[rownum] = target_tensor[rownum][colnum]
+
+        col_tensor = torch.from_numpy(temp_vals).float()
+        # get mean and std of data tensor
+        tgt_mean = torch.mean(col_tensor)
+        tgt_std = torch.std(col_tensor)
+        col_mean_tgt.append(tgt_mean)
+        col_std_tgt.append(tgt_std)
+        print("column mean:", tgt_mean)
+        print("column std:", tgt_std)
+
+        # go through and identify outliers
+        for rownum in range(0, numrows):
+            target_tensor[rownum] -= tgt_mean
+            target_tensor[rownum] /= tgt_std
+
+    print("final normalized targets:")
+    print(data_tensor)
+    print(target_tensor)
+    return data_tensor, target_tensor
+
+
+def denormalize_data(data_tensor, target_tensor):
     return
 
 
@@ -98,11 +171,11 @@ def get_col_minmax(tensor, col):
     # print("column:", col, "column max:", data_max, "column min: ", data_min)
     return data_max, data_min
 
-
 diffs = []
 
 
 # compare tensors together, return number correct (used in compfunc below)
+# TODO: Redo this
 def comp_tensor(predict, target, diffpercent):
     correct = 0
     num = torch.numel(predict)
@@ -122,6 +195,7 @@ def comp_tensor(predict, target, diffpercent):
 
 
 # compare two tensors for validation
+# TODO: Redo this
 def compfunc(predict, target, diffpercent):
     correct = 0
     predict_copy = predict.numpy()
@@ -159,8 +233,12 @@ class simdata(Dataset):
         # print(deltas.size())
         # print(data.size())
 
+        data, targets = remove_outliers(data, targets)
+        data, targets = z_score(data, targets)
+
         # DEPRECIATED CODE
-        """numcols = data.size()[1]
+        """
+        numcols = data.size()[1]
         for column in range(0, numcols):
             data_max, data_min = get_col_minmax(data, column)
             data = normalize_data(data, column, data_max, data_min)
@@ -169,10 +247,8 @@ class simdata(Dataset):
         for column in range(0, numcols):
             data_max, data_min = get_col_minmax(targets, column)
             delta_col_minmax.append((data_max, data_min))
-            targets = normalize_data(targets, column, data_max, data_min)"""
-
-        data, targets = remove_outliers(data, targets)
-        data, targets = gaussian(data, targets)
+            targets = normalize_data(targets, column, data_max, data_min)
+        """
 
         self.data = []
         for i in range(0, len(data)):
@@ -243,7 +319,9 @@ lr = 0.05
 dataset = simdata(root_dir='./data/simdata')
 print("dataset length:")
 print(len(dataset))
-train_set, test_set = random_split(dataset, [int(split*len(dataset)), int((1-split)*len(dataset))])
+print(math.floor(split*len(dataset)))
+print(math.ceil((1-split)*len(dataset)))
+train_set, test_set = random_split(dataset, [math.floor(split*len(dataset)), math.ceil((1-split)*len(dataset))])
 print("train_set length:")
 print(len(train_set))
 print("test_set length:")
