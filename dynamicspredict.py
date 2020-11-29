@@ -40,13 +40,20 @@ def denormalize_data(norm_tensor, col, tensor_max, tensor_min):
 """
 
 
+col_mean_data = []
+col_std_data = []
+col_mean_tgt = []
+col_std_tgt = []
+
+
 # remove all outliers greater than 5 standard deviations away from center
 def remove_outliers(data_tensor, target_tensor):
     print("removing outliers")
     rows_to_elim = []
 
-    # loop thru each column, get mean and std of column
+    # loop thru each data column, get mean and std of column
     numcols = data_tensor.size()[1]
+    print("number of columns:", numcols)
     numrows = data_tensor.size()[0]
     for colnum in range(0, numcols):
         temp_vals = np.empty(numrows)
@@ -55,9 +62,46 @@ def remove_outliers(data_tensor, target_tensor):
             temp_vals[rownum] = data_tensor[rownum][colnum]
 
         col_tensor = torch.from_numpy(temp_vals).float()
+        if(colnum == 1):
+            for temprownum  in range(0, numrows):
+                print("row: ", temprownum, "value:", temp_vals[temprownum])
         # get mean and std of data tensor
         col_mean = torch.mean(col_tensor)
         col_std = torch.std(col_tensor)
+        # col_mean_data.append(col_mean)
+        # col_std_data.append(col_std)
+        offset = col_std * 4
+        print("column mean:", col_mean)
+        print("column std:", col_std)
+        # print("outlier offset:", offset)
+
+        # go through and identify outliers
+        for rownum in range(0, numrows):
+            element = data_tensor[rownum][colnum]
+            if element <= col_mean-offset or element >= col_mean+offset:
+                # TODO: Change up order of columns see if its still all one column
+                print("outlier element:", element, "from column:", colnum)
+                if not rownum in rows_to_elim:
+                    print("eliminating row:", rownum)
+                    # print(data_tensor[rownum])
+                    rows_to_elim.append(rownum)
+
+    # loop thru each target column, get mean and std of column
+    numcols = target_tensor.size()[1]
+    numrows = target_tensor.size()[0]
+    # print(numcols)
+    for colnum in range(0, numcols):
+        temp_vals = np.empty(numrows)
+        # generate temp column tensor
+        for rownum in range(0, numrows):
+            temp_vals[rownum] = target_tensor[rownum][colnum]
+
+        col_tensor = torch.from_numpy(temp_vals).float()
+        # get mean and std of data tensor
+        col_mean = torch.mean(col_tensor)
+        col_std = torch.std(col_tensor)
+        # col_mean_tgt.append(col_mean)
+        # col_std_tgt.append(col_std)
         offset = col_std * 4
         # print("column mean:", col_mean)
         # print("column std:", col_std)
@@ -65,8 +109,9 @@ def remove_outliers(data_tensor, target_tensor):
 
         # go through and identify outliers
         for rownum in range(0, numrows):
-            element = data_tensor[rownum][colnum]
-            if element <= col_mean-offset or element >= col_mean+offset:
+            element = target_tensor[rownum][colnum]
+            if element <= col_mean - offset or element >= col_mean + offset:
+                print("outlier element:", element, "from column:", colnum)
                 if not rownum in rows_to_elim:
                     print("eliminating row:", rownum)
                     # print(data_tensor[rownum])
@@ -91,12 +136,6 @@ def remove_outliers(data_tensor, target_tensor):
     return data_tensor, target_tensor
 
 
-col_mean_data=[]
-col_std_data=[]
-col_mean_tgt=[]
-col_std_tgt=[]
-
-
 # z_score normalization on data & targets
 def z_score(data_tensor, target_tensor):
     # z-score on data
@@ -115,13 +154,17 @@ def z_score(data_tensor, target_tensor):
         col_std = torch.std(col_tensor)
         col_mean_data.append(col_mean)
         col_std_data.append(col_std)
+        # col_std = col_std_data[colnum]
+        # col_mean = col_mean_data[colnum]
         print("column mean:", col_mean)
         print("column std:", col_std)
 
-        # go through and identify outliers
+        # normalize
+        # TODO: MAKE THIS NOT WRONG
         for rownum in range(0, numrows):
             data_tensor[rownum][colnum] -= col_mean
             data_tensor[rownum][colnum] /= col_std
+
     # z-score norm on targets
     print("targets:")
     numcols = target_tensor.size()[1]
@@ -138,10 +181,13 @@ def z_score(data_tensor, target_tensor):
         tgt_std = torch.std(col_tensor)
         col_mean_tgt.append(tgt_mean)
         col_std_tgt.append(tgt_std)
+        # tgt_std = col_std_tgt[colnum]
+        # tgt_mean = col_mean_tgt[colnum]
         print("column mean:", tgt_mean)
         print("column std:", tgt_std)
 
-        # go through and identify outliers
+        # normalize
+        # TODO: MAKE THIS NOT WRONG
         for rownum in range(0, numrows):
             target_tensor[rownum] -= tgt_mean
             target_tensor[rownum] /= tgt_std
@@ -250,6 +296,10 @@ class simdata(Dataset):
         # concat states and deltas
         data = torch.cat((states, actions), dim=1)
         data = data[:-1]
+
+        # temparraything = [0, 2, 3, 4, 5, 6, 7, 8, 9, 1]
+        # data = torch.index_select(data, 1, torch.LongTensor(temparraything))
+
         targets = deltas
         print(targets)
         # print(deltas.size())
@@ -333,16 +383,16 @@ def my_collate(batch):
 
 
 # variables and things
-epochs = 50
+epochs = 100
 split = 0.7
 bs = 16
-lr = 0.05
+lr = 0.04
 
 dataset = simdata(root_dir='./data/simdata')
 print("dataset length:")
 print(len(dataset))
-print(math.floor(split*len(dataset)))
-print(math.ceil((1-split)*len(dataset)))
+# print(math.floor(split*len(dataset)))
+# print(math.ceil((1-split)*len(dataset)))
 train_set, test_set = random_split(dataset, [math.floor(split*len(dataset)), math.ceil((1-split)*len(dataset))])
 print("train_set length:")
 print(len(train_set))
@@ -350,11 +400,11 @@ print("test_set length:")
 print(len(test_set))
 
 # train_set_len = int(split*len(dataset))
-model = testNet(10, 100, 2, 6)
+model = testNet(10, 50, 2, 6)
 # print(model)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=lr)
-scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.2, patience=2)
+scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=2)
 
 test_errors = []
 train_errors = []
@@ -389,6 +439,7 @@ for epoch in range(epochs):
         loss = criterion(outputs.float(), targets.float())
         test_error += loss.item() / (len(testLoader))
 
+    # step lr scheduler
     scheduler.step(test_error)
 
     print(f"Epoch {epoch + 1}, Train loss: {train_error}, Test loss: {test_error}")
@@ -437,6 +488,9 @@ ax1.set_xlabel("% difference between predicted and target value")
 ax1.set_ylabel("number of occurrences")
 plt.savefig('diffpercent.png')
 plt.show()
+
+# true error vs % error
+
 
 # with torch.no_grad():
     # for data, targets in trainLoader:
