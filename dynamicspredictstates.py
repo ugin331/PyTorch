@@ -294,9 +294,18 @@ class simdata(Dataset):
         actions = torch.from_numpy(actions)
         actions = actions.type(torch.float64)
         states = torch.from_numpy(states)
+        # we're just gonna use states and name em deltas for now I don't wanna go back and rename everything
         deltas = states[1:, :] - states[:-1, :]
+        statescopy = states[0:-1]
+        # print(states[0:-1])
+        print(statescopy)
+        # print(states[1:, :])
+        # print(states[:-1, :])
 
-        # concat states and deltas
+        deltas = deltas + statescopy
+        print(deltas)
+
+        # concat states and actions
         data = torch.cat((states, actions), dim=1)
         data = data[:-1]
 
@@ -454,7 +463,7 @@ test_legend = mlines.Line2D([], [], color='orange', label='Test Loss')
 plt.plot(train_errors, label="train loss")
 plt.plot(test_errors, color="orange", label="test loss")
 plt.legend(handles=[train_legend, test_legend])
-plt.savefig('dynamicslossgraph.png')
+plt.savefig('dynamicslossgraphstates.png')
 plt.close()
 
 correct = 0
@@ -489,7 +498,7 @@ ax1 = diffFig.add_subplot()
 ax1.hist(diffs, 20, (0, 100))
 ax1.set_xlabel("% difference between predicted and target value")
 ax1.set_ylabel("number of occurrences")
-plt.savefig('diffpercent.png')
+plt.savefig('diffpercentstates.png')
 plt.show()
 
 # true error vs % error
