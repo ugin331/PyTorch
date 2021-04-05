@@ -90,6 +90,7 @@ def remove_outliers(data_tensor, target_tensor):
                     rows_to_elim.append(rownum)
 
     # loop thru each target column, get mean and std of column
+    print(target_tensor.size())
     numcols = target_tensor.size()[1]
     numrows = target_tensor.size()[0]
     # print(numcols)
@@ -289,12 +290,17 @@ class simdata(Dataset):
         # load npy files
         actions = np.load(root_dir+'/actions.npy')
         states = np.load(root_dir+'/states.npy')
+        deltas = np.load(root_dir+'/deltas.npy')
 
         # turn them to tensors
         actions = torch.from_numpy(actions)
         actions = actions.type(torch.float64)
         states = torch.from_numpy(states)
+        # use first line for original dataset (original deltas unreliable, self-generate)
         deltas = states[1:, :] - states[:-1, :]
+        # use second line for others
+        # deltas = torch.from_numpy(deltas)
+        deltas = deltas.type(torch.float64)
 
         # concat states and deltas
         data = torch.cat((states, actions), dim=1)
@@ -387,7 +393,7 @@ def my_collate(batch):
 
 # variables and things
 epochs = 100
-split = 0.7
+split = 0.8
 bs = 16
 lr = 0.04
 
@@ -459,7 +465,7 @@ plt.close()
 
 correct = 0
 total = 0
-diffpercent = 0.05
+diffpercent = 0.001
 model.eval()  # prep model for testing
 
 # validation set here
@@ -486,7 +492,7 @@ print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total
 
 diffFig = plt.figure()
 ax1 = diffFig.add_subplot()
-ax1.hist(diffs, 20, (0, 100))
+ax1.hist(diffs, 20, (0, 100), rwidth=0.7)
 ax1.set_xlabel("% difference between predicted and target value")
 ax1.set_ylabel("number of occurrences")
 plt.savefig('diffpercent.png')

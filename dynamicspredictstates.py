@@ -289,16 +289,19 @@ class simdata(Dataset):
         # load npy files
         actions = np.load(root_dir+'/actions.npy')
         states = np.load(root_dir+'/states.npy')
-
+        deltas = np.load(root_dir+'/deltas.npy')
         # turn them to tensors
         actions = torch.from_numpy(actions)
         actions = actions.type(torch.float64)
         states = torch.from_numpy(states)
+        deltas = torch.from_numpy(deltas)
+        deltas = deltas.type(torch.float64)
         # we're just gonna use states and name em deltas for now I don't wanna go back and rename everything
         deltas = states[1:, :] - states[:-1, :]
         statescopy = states[0:-1]
+        # statescopy = states
         # print(states[0:-1])
-        print(statescopy)
+        # print(statescopy)
         # print(states[1:, :])
         # print(states[:-1, :])
 
