@@ -465,7 +465,7 @@ plt.close()
 
 correct = 0
 total = 0
-diffpercent = 0.001
+diffpercent = 0.01
 model.eval()  # prep model for testing
 
 # validation set here

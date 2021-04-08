@@ -287,9 +287,9 @@ class simdata(Dataset):
         self.root_dir = root_dir
 
         # load npy files
-        actions = np.load(root_dir+'/actions.npy')
-        states = np.load(root_dir+'/states.npy')
-        deltas = np.load(root_dir+'/deltas.npy')
+        actions = np.load(root_dir+'/actions3.npy')
+        states = np.load(root_dir+'/states3.npy')
+        deltas = np.load(root_dir+'/deltas3.npy')
         # turn them to tensors
         actions = torch.from_numpy(actions)
         actions = actions.type(torch.float64)
@@ -471,7 +471,7 @@ plt.close()
 
 correct = 0
 total = 0
-diffpercent = 0.05
+diffpercent = 0.01
 model.eval()  # prep model for testing
 
 # validation set here
@@ -498,7 +498,7 @@ print('Accuracy of the network on the test set: %d %%' % ((100 * correct / total
 
 diffFig = plt.figure()
 ax1 = diffFig.add_subplot()
-ax1.hist(diffs, 20, (0, 100))
+ax1.hist(diffs, 20, (0, 100), rwidth=0.7)
 ax1.set_xlabel("% difference between predicted and target value")
 ax1.set_ylabel("number of occurrences")
 plt.savefig('diffpercentstates.png')
